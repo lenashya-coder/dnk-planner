@@ -282,6 +282,7 @@ select.status[data-s="В работе"]{background:var(--sand-soft);color:var(--
 .mf input:focus,.mf select:focus,.mf textarea:focus{border-color:var(--blue);outline:none;background:var(--surface)}
 .mf textarea{resize:vertical;min-height:84px;line-height:1.45}
 .mf textarea.tall{min-height:130px}
+.mf.story-n textarea{min-height:64px}
 .chip.reels,.type.reels{background:var(--ink);color:var(--bg)}
 .chip.poll,.type.poll{background:var(--blue-soft);color:var(--blue)}
 .content{display:flex;flex-direction:column;gap:8px;max-width:560px}
@@ -437,7 +438,14 @@ select.status[data-s="В работе"]{background:var(--sand-soft);color:var(--
           <label class="mf"><span>Вопрос в комментариях <em>спустя 15 минут после публикации</em></span><textarea id="f_commentQ"></textarea></label>
         </div>
         <div class="group" data-for="Сторис">
-          <label class="mf"><span>Сценарий сторис</span><textarea id="f_story" class="tall"></textarea></label>
+          <label class="mf story-n"><span>Сторис 1</span><textarea id="f_story1"></textarea></label>
+          <label class="mf story-n"><span>Сторис 2</span><textarea id="f_story2"></textarea></label>
+          <label class="mf story-n"><span>Сторис 3</span><textarea id="f_story3"></textarea></label>
+          <label class="mf story-n"><span>Сторис 4</span><textarea id="f_story4"></textarea></label>
+          <label class="mf story-n"><span>Сторис 5</span><textarea id="f_story5"></textarea></label>
+          <label class="mf story-n"><span>Сторис 6</span><textarea id="f_story6"></textarea></label>
+          <label class="mf story-n"><span>Сторис 7</span><textarea id="f_story7"></textarea></label>
+          <label class="mf story-n"><span>Сторис 8</span><textarea id="f_story8"></textarea></label>
         </div>
         <div class="group" data-for="Reels">
           <label class="mf"><span>Тема ролика</span><input id="f_reelsTopic"></label>
@@ -490,10 +498,11 @@ const isFeed = e => catOf(e)==="Пост" || catOf(e)==="Reels";
 const typeClass = e => ({"Пост":"post","Сторис":"story","Reels":"reels","Опрос":"poll"})[catOf(e)];
 const CAT_FIELDS = {
   "Пост":[["caption","Подпись к посту"],["cards","Текст на карточках"],["commentQ","Вопрос в комментариях"]],
-  "Сторис":[["story","Сценарий сторис"]],
+  "Сторис":[1,2,3,4,5,6,7,8].map(i=>["story"+i,"Сторис "+i]),
   "Reels":[["reelsTopic","Тема ролика"],["shoot","ТЗ для Оли"],["reelsCaption","Подпись под видео"]],
   "Опрос":[["question","Вопрос"],["answers","Варианты ответов"],["pollGoal","Зачем этот опрос"]],
 };
+function normEntry(e){ if(e && e.story && !e.story1){ e.story1 = e.story; } return e; }
 const label = e => e.rubric || (catOf(e)==="Reels" && e.reelsTopic) || (catOf(e)==="Опрос" && e.question) || catOf(e);
 
 // режим просмотра для клиента (только на сайте с Firebase)
@@ -727,7 +736,8 @@ function renderPlan(){
     const tr = document.createElement("tr");
     const dd = parse(e.date);
     const c = catOf(e);
-    const content = CAT_FIELDS[c].map(([k,l])=>{ const v=(e[k]||"").trim(); return `<div class="cf"><span class="cl">${l}</span><span class="cv${v?"":" nil"}">${v?esc(v):"—"}</span></div>`; }).join("");
+    const flds = c==="Сторис" ? (CAT_FIELDS[c].filter(([k])=>(e[k]||"").trim()).length ? CAT_FIELDS[c].filter(([k])=>(e[k]||"").trim()) : [CAT_FIELDS[c][0]]) : CAT_FIELDS[c];
+    const content = flds.map(([k,l])=>{ const v=(e[k]||"").trim(); return `<div class="cf"><span class="cl">${l}</span><span class="cv${v?"":" nil"}">${v?esc(v):"—"}</span></div>`; }).join("");
     tr.innerHTML = `<td data-f="date"><div class="dcell num"><b>${dd.getDate()}</b><small>${MONTHS_G[dd.getMonth()].slice(0,3)} · ${DOW[(dd.getDay()+6)%7]}</small></div></td>
       <td data-f="type"><span class="type ${typeClass(e)}">${esc(c)}</span></td>
       ${cell(e.rubric,"rubric")}
@@ -775,7 +785,7 @@ function renderSchedule(){
 }
 
 // modal
-const F = ["type","status","date","rubric","caption","cards","commentQ","story","reelsTopic","shoot","reelsCaption","question","answers","pollGoal"];
+const F = ["type","status","date","rubric","caption","cards","commentQ","story1","story2","story3","story4","story5","story6","story7","story8","reelsTopic","shoot","reelsCaption","question","answers","pollGoal"];
 function openEntry(e, date, slotType, focusField){
   if(RO && !e) return;
   if(!e && e!==null && date===undefined) e=null;
@@ -813,6 +823,7 @@ $("#entryForm").onsubmit = ev => {
   const e = { ...(prev||{}), id, createdAt: prev?.createdAt || new Date().toISOString() };
   F.forEach(k=> e[k] = $("#f_"+k).value.replace(/\s+$/,""));
   if(!e.date) return;
+  if(e.story1 && "story" in e) delete e.story;
   upsert(state.plan, e);
   afterStatus(e);
   api.saveEntry(e);
@@ -915,7 +926,7 @@ function firebaseDb(){
   db = cap; mode="db"; badge(RO ? "Режим просмотра" : "Синхронизация включена");
   if(!RO) await migrateLocal();
   const onErr = e => { console.error(e); badge("Нет связи с хранилищем"); if(String(e&&e.code).includes("permission")){ $("#syncWarn").hidden=false; $("#syncWarn").innerHTML="<b>Firebase не пускает запись.</b> Проверь правила Firestore (Rules): для пути dnk_planner должно быть разрешено чтение и запись."; } };
-  db.collection("plan").onSnapshot(s=>{ state.plan = s.docs.map(d=>({...d.data(), id:d.id})); queue(); }, onErr);
+  db.collection("plan").onSnapshot(s=>{ state.plan = s.docs.map(d=>normEntry({...d.data(), id:d.id})); queue(); }, onErr);
   db.collection("tasks").onSnapshot(s=>{ state.tasks = s.docs.map(d=>({...d.data(), id:d.id})); queue(); }, onErr);
   db.doc("meta/vk").onSnapshot(s=>{ if(s.exists) state.vk = {...state.vk, ...s.data()}; queue(); }, onErr);
   db.doc("meta/schedule").onSnapshot(s=>{ if(s.exists){ const d=s.data(); state.schedule = { postDays:[...(d.postDays||state.schedule.postDays)], storyDays:[...(d.storyDays||state.schedule.storyDays)], pollDays:[...(d.pollDays||[])] }; } queue(); }, onErr);
